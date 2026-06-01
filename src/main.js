@@ -25,6 +25,7 @@ const movieRadios = document.querySelectorAll('input[name="movie-time"]');
 
 const PICKUP_LABEL = 'Kedy pridem po teba?';
 const MOVIE_LABEL = 'Ktory cas filmu?';
+const STORAGE_KEY = 'ninadate-selections-v1';
 
 let cachedPickupTime = '';
 
@@ -342,6 +343,7 @@ function goToStep(fromEl, toEl) {
 
     if (toEl.id === 'step-done') {
       finalCard?.classList.add('is-reveal');
+      restoreFinalSummary();
       playMiniCelebration();
     }
   }, 400);
@@ -377,13 +379,37 @@ function formatSummary(selections) {
   return `${selections.pickup.label} → ${selections.pickup.value}\n${selections.movie.label} → ${selections.movie.value}`;
 }
 
+function renderFinalSummary(selections) {
+  const pickupEl = document.getElementById('final-pickup');
+  const movieEl = document.getElementById('final-movie');
+  if (pickupEl) {
+    pickupEl.textContent = `${selections.pickup.label} → ${selections.pickup.value}`;
+  }
+  if (movieEl) {
+    movieEl.textContent = `${selections.movie.label} → ${selections.movie.value}`;
+  }
+}
+
+function persistSelections(selections) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(selections));
+  } catch {
+    /* private mode etc. */
+  }
+}
+
+function restoreFinalSummary() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (raw) renderFinalSummary(JSON.parse(raw));
+  } catch {
+    /* ignore */
+  }
+}
+
 function showFinalSummary(selections) {
-  if (finalPickup) {
-    finalPickup.textContent = `${selections.pickup.label} → ${selections.pickup.value}`;
-  }
-  if (finalMovie) {
-    finalMovie.textContent = `${selections.movie.label} → ${selections.movie.value}`;
-  }
+  persistSelections(selections);
+  renderFinalSummary(selections);
 }
 
 function formatTime(time24) {
@@ -393,62 +419,71 @@ function formatTime(time24) {
 
 async function sendEmail(selections) {
   const summary = formatSummary(selections);
-  const body = {
-    _subject: '💕 Odpoved na pozvanku na date!',
-    _template: 'table',
-    'Kedy pridem po teba': selections.pickup.value,
-    'Ktory cas filmu': selections.movie.value,
-    pickup_time: selections.pickup.value,
-    movie_time: selections.movie.value,
-    message: `Povedala ano! 🎉\n\n${summary}`,
-  };
+  const formData = new FormData();
+  formData.append('_subject', '💕 Odpoved na pozvanku na date!');
+  formData.append('_template', 'table');
+  formData.append('_captcha', 'false');
+  formData.append('pickup_time', selections.pickup.value);
+  formData.append('movie_time', selections.movie.value);
+  formData.append('message', `Povedala ano! 🎉\n\n${summary}`);
 
   const res = await fetch(`https://formsubmit.co/ajax/${EMAIL_TO}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(body),
+    headers: { Accept: 'application/json' },
+    body: formData,
   });
 
   if (!res.ok) throw new Error('Email sa nepodarilo odoslat');
   return res.json();
 }
 
-btnYes.addEventListener('click', () => {
-  playCelebration();
-  setTimeout(() => goToStep(steps.ask, steps.details), 1400);
-});
-
-btnSubmit.addEventListener('click', async () => {
-  const result = getAllSelections();
-  if (result.error) {
-    formHint.hidden = false;
-    formHint.textContent = result.error;
-    if (!getPickupValue()) {
-      pickupTime?.focus();
-    }
+function boot() {
+  if (!document.getElementById('pickup-time') || !btnYes || !btnNo || !btnSubmit) {
+    console.error('ninadate: form elements missing');
     return;
   }
 
-  formHint.hidden = true;
-  btnSubmit.disabled = true;
-  btnSubmit.textContent = 'Odosielam...';
+  btnYes.addEventListener('click', () => {
+    playCelebration();
+    setTimeout(() => goToStep(steps.ask, steps.details), 1400);
+  });
 
-  showFinalSummary(result);
+  btnSubmit.addEventListener('click', async () => {
+    const result = getAllSelections();
+    if (result.error) {
+      formHint.hidden = false;
+      formHint.textContent = result.error;
+      if (!getPickupValue()) {
+        pickupTime?.focus();
+      }
+      return;
+    }
 
-  try {
-    await sendEmail(result);
-  } catch {
-    /* FormSubmit may need first-time activation */
-  }
+    formHint.hidden = true;
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = 'Odosielam...';
 
-  goToStep(steps.details, steps.done);
-});
+    showFinalSummary(result);
 
-setPageTheme('step-ask');
-initHeartsCanvas();
-initDodgeButton();
-initCursorSparkles();
-movieRadios[0]?.click();
+    try {
+      await sendEmail(result);
+    } catch {
+      /* FormSubmit may need first-time activation */
+    }
+
+    goToStep(steps.details, steps.done);
+    requestAnimationFrame(() => renderFinalSummary(result));
+  });
+
+  setPageTheme('step-ask');
+  initHeartsCanvas();
+  initDodgeButton();
+  initCursorSparkles();
+  movieRadios[0]?.click();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
