@@ -496,42 +496,12 @@ body.page-form {
   }
 }
 
-.choice-tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 1.1rem;
+.form-section {
+  margin-bottom: 1.25rem;
 }
 
-.tab {
-  font-family: var(--font-hand);
-  font-size: 1.1rem;
-  text-align: left;
-  padding: 12px 14px;
-  border: 2px solid var(--red);
-  border-radius: 3px 8px 5px 9px / 8px 4px 9px 5px;
-  background: var(--cream);
-  color: var(--red);
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.tab:hover {
-  background: rgba(211, 47, 47, 0.06);
-}
-
-.tab-active {
-  background: rgba(211, 47, 47, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(211, 47, 47, 0.15);
-}
-
-.choice-panel {
-  display: none;
-}
-
-.choice-panel-active {
-  display: block;
-  animation: fade-up 0.3s ease;
+.form-section:last-of-type {
+  margin-bottom: 0;
 }
 
 @keyframes fade-up {
@@ -702,14 +672,21 @@ body.page-form {
 }
 
 .final-sub {
-  font-family: var(--font-script);
-  font-size: 1.4rem;
-  color: var(--red-ink);
-  line-height: 1.55;
-  white-space: pre-line;
   padding: 12px;
   border: 2px dashed var(--red-soft);
   border-radius: 4px 10px 6px 8px / 8px 5px 10px 4px;
+}
+
+.final-line {
+  font-family: var(--font-script);
+  font-size: 1.35rem;
+  color: var(--red-ink);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.final-line + .final-line {
+  margin-top: 0.65rem;
 }
 
 /* Celebration */

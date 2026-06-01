@@ -13,22 +13,30 @@ const btnNo = document.getElementById('btn-no');
 const btnSubmit = document.getElementById('btn-submit');
 const celebration = document.getElementById('celebration');
 const formHint = document.getElementById('form-hint');
-const finalSummary = document.getElementById('final-summary');
+const finalPickup = document.getElementById('final-pickup');
+const finalMovie = document.getElementById('final-movie');
 const inviteInner = document.getElementById('invite-inner');
 const sketchFrame = document.getElementById('sketch-frame');
 const cursorSparkles = document.getElementById('cursor-sparkles');
 const finalCard = document.querySelector('.doodle-card--final');
 
-const tabs = document.querySelectorAll('.tab');
-const panelPickup = document.getElementById('panel-pickup');
-const panelMovie = document.getElementById('panel-movie');
 const pickupTime = document.getElementById('pickup-time');
 const movieRadios = document.querySelectorAll('input[name="movie-time"]');
 
-let activeChoice = 'pickup';
-
 const PICKUP_LABEL = 'Kedy pridem po teba?';
 const MOVIE_LABEL = 'Ktory cas filmu?';
+
+let cachedPickupTime = '';
+
+function syncPickupCache() {
+  if (pickupTime?.value) {
+    cachedPickupTime = pickupTime.value;
+  }
+}
+
+pickupTime?.addEventListener('input', syncPickupCache);
+pickupTime?.addEventListener('change', syncPickupCache);
+pickupTime?.addEventListener('blur', syncPickupCache);
 
 function setPageTheme(stepId) {
   const isInvite = stepId === 'step-ask';
@@ -339,21 +347,15 @@ function goToStep(fromEl, toEl) {
   }, 400);
 }
 
-tabs.forEach((tab) => {
-  tab.addEventListener('click', () => {
-    activeChoice = tab.dataset.choice;
-    tabs.forEach((t) => t.classList.remove('tab-active'));
-    tab.classList.add('tab-active');
-    panelPickup.classList.toggle('choice-panel-active', activeChoice === 'pickup');
-    panelMovie.classList.toggle('choice-panel-active', activeChoice === 'movie');
-    formHint.hidden = true;
-  });
-});
+function getPickupValue() {
+  syncPickupCache();
+  return (pickupTime?.value || cachedPickupTime || '').trim();
+}
 
 function getAllSelections() {
-  const pickupRaw = pickupTime.value;
+  const pickupRaw = getPickupValue();
   const movieRadio = [...movieRadios].find((r) => r.checked);
-  const movieRaw = movieRadio?.value ?? '';
+  const movieRaw = movieRadio?.value?.trim() ?? '';
 
   if (!pickupRaw && !movieRaw) {
     return { error: 'Vyber prosim cas vyzdvihnutia aj cas filmu' };
@@ -375,6 +377,15 @@ function formatSummary(selections) {
   return `${selections.pickup.label} → ${selections.pickup.value}\n${selections.movie.label} → ${selections.movie.value}`;
 }
 
+function showFinalSummary(selections) {
+  if (finalPickup) {
+    finalPickup.textContent = `${selections.pickup.label} → ${selections.pickup.value}`;
+  }
+  if (finalMovie) {
+    finalMovie.textContent = `${selections.movie.label} → ${selections.movie.value}`;
+  }
+}
+
 function formatTime(time24) {
   const [h, m] = time24.split(':');
   return `${h}:${m}`;
@@ -385,9 +396,11 @@ async function sendEmail(selections) {
   const body = {
     _subject: '💕 Odpoved na pozvanku na date!',
     _template: 'table',
-    cas_vyzdvihnutia: selections.pickup.value,
-    cas_filmu: selections.movie.value,
-    sprava: `Povedala ano! 🎉\n\n${summary}`,
+    'Kedy pridem po teba': selections.pickup.value,
+    'Ktory cas filmu': selections.movie.value,
+    pickup_time: selections.pickup.value,
+    movie_time: selections.movie.value,
+    message: `Povedala ano! 🎉\n\n${summary}`,
   };
 
   const res = await fetch(`https://formsubmit.co/ajax/${EMAIL_TO}`, {
@@ -413,16 +426,8 @@ btnSubmit.addEventListener('click', async () => {
   if (result.error) {
     formHint.hidden = false;
     formHint.textContent = result.error;
-    if (!pickupTime.value) {
-      activeChoice = 'pickup';
-      tabs.forEach((t) => t.classList.toggle('tab-active', t.dataset.choice === 'pickup'));
-      panelPickup.classList.add('choice-panel-active');
-      panelMovie.classList.remove('choice-panel-active');
-    } else if (![...movieRadios].find((r) => r.checked)) {
-      activeChoice = 'movie';
-      tabs.forEach((t) => t.classList.toggle('tab-active', t.dataset.choice === 'movie'));
-      panelPickup.classList.remove('choice-panel-active');
-      panelMovie.classList.add('choice-panel-active');
+    if (!getPickupValue()) {
+      pickupTime?.focus();
     }
     return;
   }
@@ -431,13 +436,14 @@ btnSubmit.addEventListener('click', async () => {
   btnSubmit.disabled = true;
   btnSubmit.textContent = 'Odosielam...';
 
+  showFinalSummary(result);
+
   try {
     await sendEmail(result);
   } catch {
     /* FormSubmit may need first-time activation */
   }
 
-  finalSummary.textContent = formatSummary(result);
   goToStep(steps.details, steps.done);
 });
 

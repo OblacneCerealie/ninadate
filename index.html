@@ -206,20 +206,19 @@
       <!-- Step 2 -->
       <section class="step" id="step-details" data-step="2">
         <div class="doodle-card">
-          <div class="choice-tabs">
-            <button type="button" class="tab tab-active" data-choice="pickup">
-              Kedy pridem po teba?
-            </button>
-            <button type="button" class="tab" data-choice="movie">Ktory cas filmu?</button>
+          <div class="form-section" id="panel-pickup">
+            <label class="field-label" for="pickup-time">Kedy pridem po teba?</label>
+            <input
+              type="time"
+              id="pickup-time"
+              name="pickup_time"
+              class="time-input"
+              required
+            />
           </div>
 
-          <div class="choice-panel choice-panel-active" id="panel-pickup">
-            <label class="field-label" for="pickup-time">Vyber si cas</label>
-            <input type="time" id="pickup-time" class="time-input" required />
-          </div>
-
-          <div class="choice-panel" id="panel-movie">
-            <p class="field-label">Vyber si cas filmu</p>
+          <div class="form-section" id="panel-movie">
+            <p class="field-label">Ktory cas filmu?</p>
             <div class="movie-options">
               <label class="movie-option">
                 <input type="radio" name="movie-time" value="17:30" />
@@ -242,7 +241,10 @@
         <div class="doodle-card doodle-card--final">
           <p class="final-scribble" aria-hidden="true">♥</p>
           <h2 class="final-title">Tesim sa :P</h2>
-          <p class="final-sub" id="final-summary"></p>
+          <div class="final-sub" id="final-summary">
+            <p class="final-line" id="final-pickup"></p>
+            <p class="final-line" id="final-movie"></p>
+          </div>
         </div>
       </section>
     </main>
