@@ -705,7 +705,8 @@ body.page-form {
   font-family: var(--font-script);
   font-size: 1.4rem;
   color: var(--red-ink);
-  line-height: 1.4;
+  line-height: 1.55;
+  white-space: pre-line;
   padding: 12px;
   border: 2px dashed var(--red-soft);
   border-radius: 4px 10px 6px 8px / 8px 5px 10px 4px;

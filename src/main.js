@@ -27,6 +27,9 @@ const movieRadios = document.querySelectorAll('input[name="movie-time"]');
 
 let activeChoice = 'pickup';
 
+const PICKUP_LABEL = 'Kedy pridem po teba?';
+const MOVIE_LABEL = 'Ktory cas filmu?';
+
 function setPageTheme(stepId) {
   const isInvite = stepId === 'step-ask';
   document.body.classList.toggle('page-invite', isInvite);
@@ -347,25 +350,29 @@ tabs.forEach((tab) => {
   });
 });
 
-function getSelection() {
-  if (activeChoice === 'pickup') {
-    const time = pickupTime.value;
-    if (!time) return null;
-    return {
-      type: 'pickup',
-      label: 'Kedy pridem po teba?',
-      value: formatTime(time),
-      raw: time,
-    };
+function getAllSelections() {
+  const pickupRaw = pickupTime.value;
+  const movieRadio = [...movieRadios].find((r) => r.checked);
+  const movieRaw = movieRadio?.value ?? '';
+
+  if (!pickupRaw && !movieRaw) {
+    return { error: 'Vyber prosim cas vyzdvihnutia aj cas filmu' };
   }
-  const selected = [...movieRadios].find((r) => r.checked);
-  if (!selected) return null;
+  if (!pickupRaw) {
+    return { error: 'Vyber prosim cas vyzdvihnutia' };
+  }
+  if (!movieRaw) {
+    return { error: 'Vyber prosim cas filmu (17:30 alebo 20:00)' };
+  }
+
   return {
-    type: 'movie',
-    label: 'Ktory cas filmu?',
-    value: selected.value,
-    raw: selected.value,
+    pickup: { label: PICKUP_LABEL, value: formatTime(pickupRaw), raw: pickupRaw },
+    movie: { label: MOVIE_LABEL, value: movieRaw, raw: movieRaw },
   };
+}
+
+function formatSummary(selections) {
+  return `${selections.pickup.label} → ${selections.pickup.value}\n${selections.movie.label} → ${selections.movie.value}`;
 }
 
 function formatTime(time24) {
@@ -373,14 +380,14 @@ function formatTime(time24) {
   return `${h}:${m}`;
 }
 
-async function sendEmail(selection) {
+async function sendEmail(selections) {
+  const summary = formatSummary(selections);
   const body = {
     _subject: '💕 Odpoved na pozvanku na date!',
     _template: 'table',
-    otazka: selection.label,
-    volba: selection.value,
-    typ: selection.type === 'pickup' ? 'Cas vyzdvihnutia' : 'Cas filmu',
-    sprava: `Povedala ano! 🎉\n\n${selection.label}\n→ ${selection.value}`,
+    cas_vyzdvihnutia: selections.pickup.value,
+    cas_filmu: selections.movie.value,
+    sprava: `Povedala ano! 🎉\n\n${summary}`,
   };
 
   const res = await fetch(`https://formsubmit.co/ajax/${EMAIL_TO}`, {
@@ -402,13 +409,21 @@ btnYes.addEventListener('click', () => {
 });
 
 btnSubmit.addEventListener('click', async () => {
-  const selection = getSelection();
-  if (!selection) {
+  const result = getAllSelections();
+  if (result.error) {
     formHint.hidden = false;
-    formHint.textContent =
-      activeChoice === 'pickup'
-        ? 'Vyber prosim cas pred odoslanim'
-        : 'Vyber prosim cas filmu (17:30 alebo 20:00)';
+    formHint.textContent = result.error;
+    if (!pickupTime.value) {
+      activeChoice = 'pickup';
+      tabs.forEach((t) => t.classList.toggle('tab-active', t.dataset.choice === 'pickup'));
+      panelPickup.classList.add('choice-panel-active');
+      panelMovie.classList.remove('choice-panel-active');
+    } else if (![...movieRadios].find((r) => r.checked)) {
+      activeChoice = 'movie';
+      tabs.forEach((t) => t.classList.toggle('tab-active', t.dataset.choice === 'movie'));
+      panelPickup.classList.remove('choice-panel-active');
+      panelMovie.classList.add('choice-panel-active');
+    }
     return;
   }
 
@@ -417,12 +432,12 @@ btnSubmit.addEventListener('click', async () => {
   btnSubmit.textContent = 'Odosielam...';
 
   try {
-    await sendEmail(selection);
+    await sendEmail(result);
   } catch {
     /* FormSubmit may need first-time activation */
   }
 
-  finalSummary.textContent = `${selection.label} → ${selection.value}`;
+  finalSummary.textContent = formatSummary(result);
   goToStep(steps.details, steps.done);
 });
 
